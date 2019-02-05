@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
 import android.content.Context;
+import android.graphics.Point;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
@@ -20,6 +21,7 @@ import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
 import com.google.ar.core.Plane;
 import com.google.ar.core.Pose;
+import com.google.ar.core.Trackable;
 import com.google.ar.sceneform.AnchorNode;
 import com.google.ar.sceneform.Camera;
 import com.google.ar.sceneform.FrameTime;
@@ -63,10 +65,6 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        if (!checkIsSupportedDeviceOrFinish(this)) {
-            return;
-        }
-
         setContentView(R.layout.activity_ux);
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
         txtDistance = findViewById(R.id.txtLength);
@@ -106,6 +104,9 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
 
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
+                    Frame frame = arFragment.getArSceneView().getArFrame();
+                    Point center = getScreenCenter(arFragment);
+                    List<HitResult> result = frame.hitTest(center.x, center.y);
                     if (cubeRenderable == null) {
                         return;
                     }
@@ -115,94 +116,105 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
                             Toast.makeText(this, "Please click clear button", Toast.LENGTH_SHORT).show();
                             return;
                         }
-                        Anchor anchor = hitResult.createAnchor();
-                        AnchorNode anchorNode = new AnchorNode(anchor);
-                        anchorNode.setParent(arFragment.getArSceneView().getScene());
-                        TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
-                        transformableNode.setParent(anchorNode);
-                        transformableNode.setRenderable(heightRenderable);
-                        transformableNode.select();
-                        ScaleController scaleController = transformableNode.getScaleController();
-                        scaleController.setMaxScale(10f);
-                        scaleController.setMinScale(0.01f);
-                        transformableNode.setOnTapListener(this);
-                        arFragment.getArSceneView().getScene().addOnUpdateListener(this);
-                        lastAnchorNode = anchorNode;
+                        for(HitResult hit : result)
+                        {
+                            Trackable trackable = hit.getTrackable();
+                            if (trackable instanceof Plane && ((Plane)trackable).isPoseInPolygon(hit.getHitPose()))
+                            {
+                                Anchor anchor = hit.createAnchor();
+                                AnchorNode anchorNode = new AnchorNode(anchor);
+                                anchorNode.setParent(arFragment.getArSceneView().getScene());
+                                TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+                                transformableNode.setParent(anchorNode);
+                                transformableNode.setRenderable(heightRenderable);
+                                transformableNode.select();
+                                ScaleController scaleController = transformableNode.getScaleController();
+                                scaleController.setMaxScale(10f);
+                                scaleController.setMinScale(0.01f);
+                                transformableNode.setOnTapListener(this);
+                                arFragment.getArSceneView().getScene().addOnUpdateListener(this);
+                                lastAnchorNode = anchorNode;
+                            }
+
+                        }
                     }
+                    for (HitResult hit : result) {
+                        Trackable trackable = hit.getTrackable();
+                        if (trackable instanceof Plane && ((Plane) trackable).isPoseInPolygon(hit.getHitPose())) {
+                            if (btnLengthClicked) {
+                                if (lastAnchorNode == null) {
+                                    Anchor anchor = hit.createAnchor();
+                                    AnchorNode anchorNode = new AnchorNode(anchor);
+                                    anchorNode.setParent(arFragment.getArSceneView().getScene());
 
-                    if (btnLengthClicked) {
+                                    Pose pose = anchor.getPose();
+                                    if (arrayList1.isEmpty()) {
+                                        arrayList1.add(pose.tx());
+                                        arrayList1.add(pose.ty());
+                                        arrayList1.add(pose.tz());
+                                    }
+                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+                                    transformableNode.setParent(anchorNode);
+                                    transformableNode.setRenderable(cubeRenderable);
+                                    transformableNode.select();
+                                    lastAnchorNode = anchorNode;
+                                } else {
+                                    int val = motionEvent.getActionMasked();
+                                    float axisVal = motionEvent.getAxisValue(MotionEvent.AXIS_X, motionEvent.getPointerId(motionEvent.getPointerCount() - 1));
+                                    Log.e("Values:", String.valueOf(val) + String.valueOf(axisVal));
+                                    Anchor anchor = hit.createAnchor();
+                                    AnchorNode anchorNode = new AnchorNode(anchor);
+                                    anchorNode.setParent(arFragment.getArSceneView().getScene());
 
-                        if (lastAnchorNode == null) {
-                            Anchor anchor = hitResult.createAnchor();
-                            AnchorNode anchorNode = new AnchorNode(anchor);
-                            anchorNode.setParent(arFragment.getArSceneView().getScene());
+                                    Pose pose = anchor.getPose();
 
-                            Pose pose = anchor.getPose();
-                            if (arrayList1.isEmpty()) {
-                                arrayList1.add(pose.tx());
-                                arrayList1.add(pose.ty());
-                                arrayList1.add(pose.tz());
+
+                                    if (arrayList2.isEmpty()) {
+                                        arrayList2.add(pose.tx());
+                                        arrayList2.add(pose.ty());
+                                        arrayList2.add(pose.tz());
+                                        float d = getDistanceMeters(arrayList1, arrayList2);
+                                        txtDistance.setText("Distance: " + String.valueOf(d));
+                                    } else {
+                                        arrayList1.clear();
+                                        arrayList1.addAll(arrayList2);
+                                        arrayList2.clear();
+                                        arrayList2.add(pose.tx());
+                                        arrayList2.add(pose.ty());
+                                        arrayList2.add(pose.tz());
+                                        float d = getDistanceMeters(arrayList1, arrayList2);
+                                        txtDistance.setText("Distance: " + String.valueOf(d));
+                                    }
+
+                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+                                    transformableNode.setParent(anchorNode);
+                                    transformableNode.setRenderable(cubeRenderable);
+                                    transformableNode.select();
+
+                                    Vector3 point1, point2;
+                                    point1 = lastAnchorNode.getWorldPosition();
+                                    point2 = anchorNode.getWorldPosition();
+
+                                    final Vector3 difference = Vector3.subtract(point1, point2);
+                                    final Vector3 directionFromTopToBottom = difference.normalized();
+                                    final Quaternion rotationFromAToB =
+                                            Quaternion.lookRotation(directionFromTopToBottom, Vector3.up());
+                                    MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new Color(0, 255, 244))
+                                            .thenAccept(
+                                                    material -> {
+                                                        ModelRenderable model = ShapeFactory.makeCube(
+                                                                new Vector3(.01f, .01f, difference.length()),
+                                                                Vector3.zero(), material);
+                                                        Node node = new Node();
+                                                        node.setParent(anchorNode);
+                                                        node.setRenderable(model);
+                                                        node.setWorldPosition(Vector3.add(point1, point2).scaled(.5f));
+                                                        node.setWorldRotation(rotationFromAToB);
+                                                    }
+                                            );
+                                    lastAnchorNode = anchorNode;
+                                }
                             }
-                            TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
-                            transformableNode.setParent(anchorNode);
-                            transformableNode.setRenderable(cubeRenderable);
-                            transformableNode.select();
-                            lastAnchorNode = anchorNode;
-                        } else {
-                            int val = motionEvent.getActionMasked();
-                            float axisVal = motionEvent.getAxisValue(MotionEvent.AXIS_X, motionEvent.getPointerId(motionEvent.getPointerCount() - 1));
-                            Log.e("Values:", String.valueOf(val) + String.valueOf(axisVal));
-                            Anchor anchor = hitResult.createAnchor();
-                            AnchorNode anchorNode = new AnchorNode(anchor);
-                            anchorNode.setParent(arFragment.getArSceneView().getScene());
-
-                            Pose pose = anchor.getPose();
-
-
-                            if (arrayList2.isEmpty()) {
-                                arrayList2.add(pose.tx());
-                                arrayList2.add(pose.ty());
-                                arrayList2.add(pose.tz());
-                                float d = getDistanceMeters(arrayList1, arrayList2);
-                                txtDistance.setText("Distance: " + String.valueOf(d));
-                            } else {
-                                arrayList1.clear();
-                                arrayList1.addAll(arrayList2);
-                                arrayList2.clear();
-                                arrayList2.add(pose.tx());
-                                arrayList2.add(pose.ty());
-                                arrayList2.add(pose.tz());
-                                float d = getDistanceMeters(arrayList1, arrayList2);
-                                txtDistance.setText("Distance: " + String.valueOf(d));
-                            }
-
-                            TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
-                            transformableNode.setParent(anchorNode);
-                            transformableNode.setRenderable(cubeRenderable);
-                            transformableNode.select();
-
-                            Vector3 point1, point2;
-                            point1 = lastAnchorNode.getWorldPosition();
-                            point2 = anchorNode.getWorldPosition();
-
-                            final Vector3 difference = Vector3.subtract(point1, point2);
-                            final Vector3 directionFromTopToBottom = difference.normalized();
-                            final Quaternion rotationFromAToB =
-                                    Quaternion.lookRotation(directionFromTopToBottom, Vector3.up());
-                            MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new Color(0, 255, 244))
-                                    .thenAccept(
-                                            material -> {
-                                                ModelRenderable model = ShapeFactory.makeCube(
-                                                        new Vector3(.01f, .01f, difference.length()),
-                                                        Vector3.zero(), material);
-                                                Node node = new Node();
-                                                node.setParent(anchorNode);
-                                                node.setRenderable(model);
-                                                node.setWorldPosition(Vector3.add(point1, point2).scaled(.5f));
-                                                node.setWorldRotation(rotationFromAToB);
-                                            }
-                                    );
-                            lastAnchorNode = anchorNode;
                         }
                     }
                 });
@@ -239,29 +251,6 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
                 distanceZ * distanceZ);
     }
 
-    @SuppressLint("ObsoleteSdkInt")
-    public static boolean checkIsSupportedDeviceOrFinish(final Activity activity) {
-        if (Build.VERSION.SDK_INT < VERSION_CODES.N) {
-            Log.e(TAG, "Sceneform requires Android N or later");
-            Toast.makeText(activity, "Sceneform requires Android N or later", Toast.LENGTH_LONG).show();
-            activity.finish();
-            return false;
-        }
-        String openGlVersionString =
-                ((ActivityManager) Objects.requireNonNull(activity.getSystemService(Context.ACTIVITY_SERVICE)))
-                        .getDeviceConfigurationInfo()
-                        .getGlEsVersion();
-        if (Double.parseDouble(openGlVersionString) < MIN_OPENGL_VERSION) {
-            Log.e(TAG, "Sceneform requires OpenGL ES 3.0 later");
-            Toast.makeText(activity, "Sceneform requires OpenGL ES 3.0 or later", Toast.LENGTH_LONG)
-                    .show();
-            activity.finish();
-            return false;
-        }
-        return true;
-    }
-
-    @SuppressLint("SetTextI18n")
     @Override
     public void onTap(HitTestResult hitTestResult, MotionEvent motionEvent) {
         Node node = hitTestResult.getNode();
@@ -287,4 +276,15 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
 //            Handle updated anchors...
 //        }
     }
+    private Point getScreenCenter(ArFragment arFragment) {
+
+        if(this.arFragment == null || this.arFragment.getView() == null) {
+            return new android.graphics.Point(0,0);
+        }
+
+        int w = this.arFragment.getView().getWidth()/2;
+        int h = this.arFragment.getView().getHeight()/2;
+        return new android.graphics.Point(w, h);
+    }
+
 }
