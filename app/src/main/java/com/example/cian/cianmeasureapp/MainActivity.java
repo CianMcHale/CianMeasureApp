@@ -39,7 +39,6 @@ import com.google.ar.sceneform.rendering.ShapeFactory;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.ScaleController;
 import com.google.ar.sceneform.ux.TransformableNode;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -49,37 +48,23 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
     private static final String TAG = MainActivity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
 
-    ArrayList<Float> arrayList1 = new ArrayList<>();
-    ArrayList<Float> arrayList2 = new ArrayList<>();
     private ArFragment arFragment;
     private AnchorNode lastAnchorNode;
     private TextView txtDistance;
-    Button btnDist, btnHeight, btnClear;
-    ModelRenderable cubeRenderable, heightRenderable;
-    boolean btnHeightClicked, btnLengthClicked;
+    Button btnClear; //Button that when clicked removes existing nodes and resets to initial state
+    ModelRenderable cubeRenderable;
+    ArrayList<Float> listOfArrays1 = new ArrayList<>(); //Co-Ordinates of first anchor stored here
+    ArrayList<Float> listOfArrays2 = new ArrayList<>(); //Co-Ordinates of second anchor stored here
+    private float nodeAge;
     Vector3 point1, point2;
 
-    @SuppressLint("SetTextI18n")
-    @Override
-    @SuppressWarnings({"AndroidApiChecker", "FutureReturnValueIgnored"})
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_ux);
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
         txtDistance = findViewById(R.id.txtLength);
-        btnDist = findViewById(R.id.btnDistance);
-        btnDist.setOnClickListener(v -> {
-            btnLengthClicked = true;
-            btnHeightClicked = false;
-            onClear();
-        });
-        btnHeight = findViewById(R.id.btnHeight);
-        btnHeight.setOnClickListener(v -> {
-            btnHeightClicked = true;
-            btnLengthClicked = false;
-            onClear();
-        });
+
         btnClear = findViewById(R.id.clear);
         btnClear.setOnClickListener(v -> onClear());
 
@@ -92,167 +77,132 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
                             cubeRenderable.setShadowReceiver(false);
                         });
 
-        MaterialFactory.makeTransparentWithColor(this, new Color(0F, 0F, 244F))
-                .thenAccept(
-                        material -> {
-                            Vector3 vector3 = new Vector3(0.007f, 0.1f, 0.007f);
-                            heightRenderable = ShapeFactory.makeCube(vector3, Vector3.zero(), material);
-                            heightRenderable.setShadowCaster(false);
-                            heightRenderable.setShadowReceiver(false);
-                        });
-
-
         arFragment.setOnTapArPlaneListener(
                 (HitResult hitResult, Plane plane, MotionEvent motionEvent) -> {
-                    Frame frame = arFragment.getArSceneView().getArFrame();
-                    Point center = getScreenCenter(arFragment);
-                    List<HitResult> result = frame.hitTest(center.x, center.y);
+                    Frame frame = arFragment.getArSceneView().getArFrame(); //Capture the state
+                    Point center = getScreenCenter(arFragment); //Track point that the centre of the screen is looking at
+                    List<HitResult> result = frame.hitTest(center.x, center.y); //Perform raycast from device in the centre direction
+
                     if (cubeRenderable == null) {
                         return;
                     }
 
-                    if (btnHeightClicked) {
-                        if (lastAnchorNode != null) {
-                            Toast.makeText(this, "Please click clear button", Toast.LENGTH_SHORT).show();
-                            return;
-                        }
-                        for(HitResult hit : result)
+                    for (HitResult hit : result) //Check if any plane was hit
+                    {
+                        Trackable trackable = hit.getTrackable(); //Creates an anchor if a plane was hit
+                        if (trackable instanceof Plane && ((Plane) trackable).isPoseInPolygon(hit.getHitPose())) //Hits are sorted by depth. Only consider closest hit on a plane
                         {
-                            Trackable trackable = hit.getTrackable();
-                            if (trackable instanceof Plane && ((Plane)trackable).isPoseInPolygon(hit.getHitPose()))
-                            {
+                            if (lastAnchorNode == null) {
+                                Anchor anchor = hit.createAnchor(); //Create anchor based at intersection between raycast and plane
+                                AnchorNode anchorNode = new AnchorNode(anchor); //Position node in world space based of above anchor
+                                anchorNode.setParent(arFragment.getArSceneView().getScene());
+
+                                Pose pose = anchor.getPose(); //return pose of the anchor created
+                                if (listOfArrays1.isEmpty()) {
+                                    listOfArrays1.add(pose.tx()); //Store x component of pose's translation
+                                    listOfArrays1.add(pose.ty()); //Store y component of pose's translation
+                                    listOfArrays1.add(pose.tz()); //Store z component of pose's translation
+                                }
+                                TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
+                                transformableNode.setParent(anchorNode);
+                                transformableNode.setRenderable(cubeRenderable);
+                                transformableNode.select();
+                                lastAnchorNode = anchorNode;
+                            } else {
                                 Anchor anchor = hit.createAnchor();
                                 AnchorNode anchorNode = new AnchorNode(anchor);
                                 anchorNode.setParent(arFragment.getArSceneView().getScene());
+
+                                Pose pose = anchor.getPose();
+
+
+                                if (listOfArrays2.isEmpty()) {
+                                    listOfArrays2.add(pose.tx()); //Store x component of pose's translation
+                                    listOfArrays2.add(pose.ty()); //Store y component of pose's translation
+                                    listOfArrays2.add(pose.tz()); //Store z component of pose's translation
+                                    float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
+                                    txtDistance.setText("Distance: " + String.valueOf(d));
+                                } else {
+                                    listOfArrays1.clear(); //empty first list of poses
+                                    listOfArrays1.addAll(listOfArrays2); //store second list of poses in first list of poses
+                                    listOfArrays2.clear(); //empty second list of poses
+                                    listOfArrays2.add(pose.tx()); //Store x component of pose's translation
+                                    listOfArrays2.add(pose.ty()); //Store y component of pose's translation
+                                    listOfArrays2.add(pose.tz()); //Store z component of pose's translation
+                                    float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
+                                    txtDistance.setText("Distance: " + String.valueOf(d)); //Display the distance
+                                }
+
                                 TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
                                 transformableNode.setParent(anchorNode);
-                                transformableNode.setRenderable(heightRenderable);
+                                transformableNode.setRenderable(cubeRenderable);
                                 transformableNode.select();
-                                ScaleController scaleController = transformableNode.getScaleController();
-                                scaleController.setMaxScale(10f);
-                                scaleController.setMinScale(0.01f);
-                                transformableNode.setOnTapListener(this);
-                                arFragment.getArSceneView().getScene().addOnUpdateListener(this);
+
+                                Vector3 point1, point2;
+                                point1 = lastAnchorNode.getWorldPosition();
+                                point2 = anchorNode.getWorldPosition();
+
+                                final Vector3 difference = Vector3.subtract(point1, point2); //Find vector extending between two nodes  and define a look rotation in terms of this vector
+                                final Vector3 directionFromTopToBottom = difference.normalized();
+                                final Quaternion rotationFromAToB =
+                                        Quaternion.lookRotation(directionFromTopToBottom, Vector3.up());
+                                MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new Color(0, 255, 244)) //Create a rectangular prism and use difference vector to extend the necessary length
+                                        .thenAccept(
+                                                material -> {
+                                                    ModelRenderable model = ShapeFactory.makeCube(
+                                                            new Vector3(.01f, .01f, difference.length()),
+                                                            Vector3.zero(), material);
+                                                    Node node = new Node();
+                                                    node.setParent(anchorNode);
+                                                    node.setRenderable(model);
+                                                    node.setWorldPosition(Vector3.add(point1, point2).scaled(.5f)); //Set the world rotation of the node to the rotation calculated earlier
+                                                    node.setWorldRotation(rotationFromAToB); //Set world position to midpoint between given points
+                                                }
+                                        );
                                 lastAnchorNode = anchorNode;
-                            }
-
-                        }
-                    }
-                    for (HitResult hit : result) {
-                        Trackable trackable = hit.getTrackable();
-                        if (trackable instanceof Plane && ((Plane) trackable).isPoseInPolygon(hit.getHitPose())) {
-                            if (btnLengthClicked) {
-                                if (lastAnchorNode == null) {
-                                    Anchor anchor = hit.createAnchor();
-                                    AnchorNode anchorNode = new AnchorNode(anchor);
-                                    anchorNode.setParent(arFragment.getArSceneView().getScene());
-
-                                    Pose pose = anchor.getPose();
-                                    if (arrayList1.isEmpty()) {
-                                        arrayList1.add(pose.tx());
-                                        arrayList1.add(pose.ty());
-                                        arrayList1.add(pose.tz());
-                                    }
-                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
-                                    transformableNode.setParent(anchorNode);
-                                    transformableNode.setRenderable(cubeRenderable);
-                                    transformableNode.select();
-                                    lastAnchorNode = anchorNode;
-                                } else {
-                                    int val = motionEvent.getActionMasked();
-                                    float axisVal = motionEvent.getAxisValue(MotionEvent.AXIS_X, motionEvent.getPointerId(motionEvent.getPointerCount() - 1));
-                                    Log.e("Values:", String.valueOf(val) + String.valueOf(axisVal));
-                                    Anchor anchor = hit.createAnchor();
-                                    AnchorNode anchorNode = new AnchorNode(anchor);
-                                    anchorNode.setParent(arFragment.getArSceneView().getScene());
-
-                                    Pose pose = anchor.getPose();
-
-
-                                    if (arrayList2.isEmpty()) {
-                                        arrayList2.add(pose.tx());
-                                        arrayList2.add(pose.ty());
-                                        arrayList2.add(pose.tz());
-                                        float d = getDistanceMeters(arrayList1, arrayList2);
-                                        txtDistance.setText("Distance: " + String.valueOf(d));
-                                    } else {
-                                        arrayList1.clear();
-                                        arrayList1.addAll(arrayList2);
-                                        arrayList2.clear();
-                                        arrayList2.add(pose.tx());
-                                        arrayList2.add(pose.ty());
-                                        arrayList2.add(pose.tz());
-                                        float d = getDistanceMeters(arrayList1, arrayList2);
-                                        txtDistance.setText("Distance: " + String.valueOf(d));
-                                    }
-
-                                    TransformableNode transformableNode = new TransformableNode(arFragment.getTransformationSystem());
-                                    transformableNode.setParent(anchorNode);
-                                    transformableNode.setRenderable(cubeRenderable);
-                                    transformableNode.select();
-
-                                    Vector3 point1, point2;
-                                    point1 = lastAnchorNode.getWorldPosition();
-                                    point2 = anchorNode.getWorldPosition();
-
-                                    final Vector3 difference = Vector3.subtract(point1, point2);
-                                    final Vector3 directionFromTopToBottom = difference.normalized();
-                                    final Quaternion rotationFromAToB =
-                                            Quaternion.lookRotation(directionFromTopToBottom, Vector3.up());
-                                    MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new Color(0, 255, 244))
-                                            .thenAccept(
-                                                    material -> {
-                                                        ModelRenderable model = ShapeFactory.makeCube(
-                                                                new Vector3(.01f, .01f, difference.length()),
-                                                                Vector3.zero(), material);
-                                                        Node node = new Node();
-                                                        node.setParent(anchorNode);
-                                                        node.setRenderable(model);
-                                                        node.setWorldPosition(Vector3.add(point1, point2).scaled(.5f));
-                                                        node.setWorldRotation(rotationFromAToB);
-                                                    }
-                                            );
-                                    lastAnchorNode = anchorNode;
-                                }
                             }
                         }
                     }
                 });
-
     }
 
-    private void onClear() {
+    private void onClear() //Method used to remove nodes from scene and reset to initial state
+    {
         List<Node> children = new ArrayList<>(arFragment.getArSceneView().getScene().getChildren());
-        for (Node node : children) {
-            if (node instanceof AnchorNode) {
-                if (((AnchorNode) node).getAnchor() != null) {
+        for (Node node : children)
+        {
+            if (node instanceof AnchorNode)
+            {
+                if (((AnchorNode) node).getAnchor() != null)
+                {
                     ((AnchorNode) node).getAnchor().detach();
                 }
             }
-            if (!(node instanceof Camera) && !(node instanceof Sun)) {
+            if (!(node instanceof Camera) && !(node instanceof Sun))
+            {
                 node.setParent(null);
             }
         }
-        arrayList1.clear();
-        arrayList2.clear();
+        listOfArrays1.clear();
+        listOfArrays2.clear();
         lastAnchorNode = null;
         point1 = null;
         point2 = null;
         txtDistance.setText("");
     }
 
-    private float getDistanceMeters(ArrayList<Float> arayList1, ArrayList<Float> arrayList2) {
+    private float getDistanceMeters(ArrayList<Float> list1, ArrayList<Float> list2) //method to get distance between poses
+    {
 
-        float distanceX = arayList1.get(0) - arrayList2.get(0);
-        float distanceY = arayList1.get(1) - arrayList2.get(1);
-        float distanceZ = arayList1.get(2) - arrayList2.get(2);
-        return (float) Math.sqrt(distanceX * distanceX +
-                distanceY * distanceY +
-                distanceZ * distanceZ);
+        float distanceX = list1.get(0) - list2.get(0); //distance between poses at x co-ordinate
+        float distanceY = list1.get(1) - list2.get(1); //distance between poses at y co-ordinate
+        float distanceZ = list1.get(2) - list2.get(2); //distance between poses at z co-ordinate
+        return (float) Math.sqrt(distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ);
     }
 
     @Override
-    public void onTap(HitTestResult hitTestResult, MotionEvent motionEvent) {
+    public void onTap(HitTestResult hitTestResult, MotionEvent motionEvent)
+    {
         Node node = hitTestResult.getNode();
         Box box = (Box) node.getRenderable().getCollisionShape();
         assert box != null;
@@ -269,22 +219,25 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
     }
 
     @Override
-    public void onUpdate(FrameTime frameTime) {
+    public void onUpdate(FrameTime frameTime)
+    {
         Frame frame = arFragment.getArSceneView().getArFrame();
 //        Collection<Anchor> updatedAnchors = frame.getUpdatedAnchors();
 //        for (Anchor anchor : updatedAnchors) {
 //            Handle updated anchors...
 //        }
     }
-    private Point getScreenCenter(ArFragment arFragment) {
+    private Point getScreenCenter(ArFragment arFragment) //method to get centre of screen
+    {
 
-        if(this.arFragment == null || this.arFragment.getView() == null) {
+        if(this.arFragment == null || this.arFragment.getView() == null)
+        {
             return new android.graphics.Point(0,0);
         }
 
-        int w = this.arFragment.getView().getWidth()/2;
-        int h = this.arFragment.getView().getHeight()/2;
-        return new android.graphics.Point(w, h);
+        int a = this.arFragment.getView().getWidth()/2;
+        int b = this.arFragment.getView().getHeight()/2;
+        return new android.graphics.Point(a, b);
     }
 
 }
