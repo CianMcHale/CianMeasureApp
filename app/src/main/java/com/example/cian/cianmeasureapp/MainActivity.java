@@ -55,7 +55,7 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
     ModelRenderable cubeRenderable;
     ArrayList<Float> listOfArrays1 = new ArrayList<>(); //Co-Ordinates of first anchor stored here
     ArrayList<Float> listOfArrays2 = new ArrayList<>(); //Co-Ordinates of second anchor stored here
-    private float nodeAge;
+    private float time; //Will be used to store current time.
     Vector3 point1, point2;
 
     protected void onCreate(Bundle savedInstanceState) {
@@ -121,7 +121,7 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
                                     listOfArrays2.add(pose.ty()); //Store y component of pose's translation
                                     listOfArrays2.add(pose.tz()); //Store z component of pose's translation
                                     float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
-                                    txtDistance.setText("Distance: " + String.valueOf(d));
+                                    txtDistance.setText("Distance: " + String.valueOf(d)); //Display distance between nodes
                                 } else {
                                     listOfArrays1.clear(); //empty first list of poses
                                     listOfArrays1.addAll(listOfArrays2); //store second list of poses in first list of poses
@@ -194,10 +194,10 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
     private float getDistanceMeters(ArrayList<Float> list1, ArrayList<Float> list2) //method to get distance between poses
     {
 
-        float distanceX = list1.get(0) - list2.get(0); //distance between poses at x co-ordinate
-        float distanceY = list1.get(1) - list2.get(1); //distance between poses at y co-ordinate
-        float distanceZ = list1.get(2) - list2.get(2); //distance between poses at z co-ordinate
-        return (float) Math.sqrt(distanceX * distanceX + distanceY * distanceY + distanceZ * distanceZ);
+        float dx = list1.get(0) - list2.get(0); //distance between poses at x co-ordinate
+        float dy = list1.get(1) - list2.get(1); //distance between poses at y co-ordinate
+        float dz = list1.get(2) - list2.get(2); //distance between poses at z co-ordinate
+        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     @Override
@@ -219,14 +219,11 @@ public class MainActivity extends AppCompatActivity implements Node.OnTapListene
     }
 
     @Override
-    public void onUpdate(FrameTime frameTime)
+    public void onUpdate(FrameTime frameTime) //Frametime provides info for the current frame. Onupdate called once per frame before scene is updated
     {
         Frame frame = arFragment.getArSceneView().getArFrame();
-//        Collection<Anchor> updatedAnchors = frame.getUpdatedAnchors();
-//        for (Anchor anchor : updatedAnchors) {
-//            Handle updated anchors...
-//        }
     }
+
     private Point getScreenCenter(ArFragment arFragment) //method to get centre of screen
     {
 
