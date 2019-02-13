@@ -193,7 +193,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                         }
                     }
                 });
-    }
+    } 
 
     private void onClear() //Method used to remove nodes from scene and reset to initial state
     {
