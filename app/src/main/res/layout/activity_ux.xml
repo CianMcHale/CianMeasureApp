@@ -48,11 +48,12 @@
 
         <TextView
             android:id="@+id/editText"
-            android:layout_width="231dp"
+            android:layout_width="299dp"
             android:layout_height="wrap_content"
+            android:layout_alignParentEnd="true"
             android:layout_alignParentBottom="true"
-            android:layout_centerHorizontal="true"
-            android:layout_marginBottom="244dp"
+            android:layout_marginEnd="42dp"
+            android:layout_marginBottom="334dp"
             android:ems="10"
             android:text="Anchor Will Be Placed Here"
             android:textColor="@android:color/holo_green_dark"

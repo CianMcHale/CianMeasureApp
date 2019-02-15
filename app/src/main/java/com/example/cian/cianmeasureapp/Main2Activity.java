@@ -10,6 +10,10 @@ import android.graphics.Point;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.speech.RecognitionListener;
+import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
+import android.speech.tts.TextToSpeech;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -43,12 +47,18 @@ import com.google.ar.sceneform.ux.TransformableNode;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public class Main2Activity extends AppCompatActivity implements Node.OnTapListener, Scene.OnUpdateListener {
     private static final String TAG = Main2Activity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
 
+    private SpeechRecognizer mySpeechRecognizer;
+    private TextToSpeech myTTS;
+    private TextToSpeech myTTS1;
+    private TextToSpeech myTTS2;
+    private TextToSpeech myTTS3;
     private ArFragment arFragment;
     private AnchorNode lastAnchorNode;
     private TextView txtDistance;
@@ -128,7 +138,9 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                     float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
                                     txtDistance.setText("Distance: " + String.valueOf(d)); //Display distance between nodes
                                     currentDistance=d;
-                                } else {
+                                }
+                                else
+                                    {
                                     listOfArrays1.clear(); //empty first list of poses
                                     listOfArrays1.addAll(listOfArrays2); //store second list of poses in first list of poses
                                     listOfArrays2.clear(); //empty second list of poses
@@ -168,6 +180,8 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                                     }
                                             );
                                     lastAnchorNode = anchorNode;
+                                    speakNotWideEnough();
+                                    speakDistance();
                                 }
                                 else{
                                     final Vector3 difference = Vector3.subtract(point1, point2); //Find vector extending between two nodes  and define a look rotation in terms of this vector
@@ -188,12 +202,193 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                                     }
                                             );
                                     lastAnchorNode = anchorNode;
+                                    speakWideEnough();
+                                    speakDistance();
+
                                 }
                             }
                         }
+
+                        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                        intent.putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+                        mySpeechRecognizer.startListening(intent);
+
                     }
                 });
-    } 
+
+        initalizeSpeechRecognizer();
+    }
+    private void speakDistance() {
+        myTTS = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(myTTS.getEngines().size() == 0)
+                {
+                    Toast.makeText(Main2Activity.this, "There is no TTS engine on your device", Toast.LENGTH_LONG).show();
+                    finish();
+                }
+                else
+                {
+                    myTTS.setLanguage(Locale.ENGLISH);
+                    speak("The distance is " + currentDistance +"metres");
+                }
+            }
+        });
+    }
+
+    private void speakWideEnough() {
+        myTTS1 = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(myTTS1.getEngines().size() == 0)
+                {
+                    Toast.makeText(Main2Activity.this, "There is no TTS engine on your device", Toast.LENGTH_LONG).show();
+                    finish();
+                }
+                else
+                {
+                    myTTS1.setLanguage(Locale.ENGLISH);
+                    speak1("The distance is wide enough for you to pass through");
+                }
+            }
+        });
+    }
+
+    private void speakNotWideEnough() {
+        myTTS2 = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(myTTS2.getEngines().size() == 0)
+                {
+                    Toast.makeText(Main2Activity.this, "There is no TTS engine on your device", Toast.LENGTH_LONG).show();
+                    finish();
+                }
+                else
+                {
+                    myTTS2.setLanguage(Locale.ENGLISH);
+                    speak2("The distance is NOT wide enough for you to pass through");
+                }
+            }
+        });
+    }
+    private void processResults(String command) {
+        command = command.toLowerCase();
+
+        //what is the distance?
+
+        if(command.indexOf("what") != -1)
+        {
+            speak3("The distance is " + currentDistance + "metres");
+        }
+
+
+    }
+
+    private void speak(String message)
+    {
+        if(Build.VERSION.SDK_INT >= 21)
+        {
+            myTTS.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
+        }
+        else
+        {
+            myTTS.speak(message, TextToSpeech.QUEUE_FLUSH, null);
+        }
+    }
+
+    private void speak1(String message)
+    {
+        if(Build.VERSION.SDK_INT >= 21)
+        {
+            myTTS1.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
+        }
+        else
+        {
+            myTTS1.speak(message, TextToSpeech.QUEUE_FLUSH, null);
+        }
+    }
+
+    private void speak2(String message)
+    {
+        if(Build.VERSION.SDK_INT >= 21)
+        {
+            myTTS2.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
+        }
+        else
+        {
+            myTTS2.speak(message, TextToSpeech.QUEUE_FLUSH, null);
+        }
+    }
+
+    private void speak3(String message)
+    {
+        if(Build.VERSION.SDK_INT >= 21)
+        {
+            myTTS3.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
+        }
+        else
+        {
+            myTTS3.speak(message, TextToSpeech.QUEUE_FLUSH, null);
+        }
+    }
+
+    private void initalizeSpeechRecognizer()
+    {
+        if(SpeechRecognizer.isRecognitionAvailable(this))
+        {
+            mySpeechRecognizer = mySpeechRecognizer.createSpeechRecognizer(this);
+            mySpeechRecognizer.setRecognitionListener(new RecognitionListener() {
+                @Override
+                public void onReadyForSpeech(Bundle params) {
+
+                }
+
+                @Override
+                public void onBeginningOfSpeech() {
+
+                }
+
+                @Override
+                public void onRmsChanged(float rmsdB) {
+
+                }
+
+                @Override
+                public void onBufferReceived(byte[] buffer) {
+
+                }
+
+                @Override
+                public void onEndOfSpeech() {
+
+                }
+
+                @Override
+                public void onError(int error) {
+
+                }
+
+                @Override
+                public void onResults(Bundle results) {
+                    List<String> resultstest = results.getStringArrayList(
+                            SpeechRecognizer.RESULTS_RECOGNITION
+                    );
+                    processResults(resultstest.get(0));
+                }
+
+                @Override
+                public void onPartialResults(Bundle partialResults) {
+
+                }
+
+                @Override
+                public void onEvent(int eventType, Bundle params) {
+
+                }
+            });
+        }
+    }
 
     private void onClear() //Method used to remove nodes from scene and reset to initial state
     {

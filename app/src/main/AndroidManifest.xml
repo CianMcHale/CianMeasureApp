@@ -14,6 +14,7 @@
         android:name="android.hardware.camera.ar"
         android:required="true" />
 
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <application
         android:allowBackup="false"
         android:icon="@drawable/my_logo"
