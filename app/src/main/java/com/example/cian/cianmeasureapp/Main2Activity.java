@@ -14,10 +14,13 @@ import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
+import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.View;
 import android.widget.Button;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -54,6 +57,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     private static final String TAG = Main2Activity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
 
+    private static final int REQUEST_CODE_SPEECH_INPUT = 1000;
     private SpeechRecognizer mySpeechRecognizer;
     private TextToSpeech myTTS;
     private TextToSpeech myTTS1;
@@ -73,15 +77,60 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     Float width=0.8f;
     Float currentDistance;
 
+    ImageButton mvoiceBtn;
+
+
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
         setContentView(R.layout.activity_ux);
+
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
         txtDistance = findViewById(R.id.txtLength);
 
         btnClear = findViewById(R.id.clear);
         btnClear.setOnClickListener(v -> onClear());
+        mvoiceBtn = findViewById(R.id.voiceBtn);
+        mvoiceBtn.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                speak ();
+            }
+
+            private void speak() {
+                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
+                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Would you like to clear existing anchors?");
+
+
+                try {
+                    startActivityForResult(intent, REQUEST_CODE_SPEECH_INPUT);
+                }
+
+                catch (Exception e){
+
+                }
+            }
+
+            protected void OnActivityResult(int requestCode, int resultCode, @Nullable Intent data)
+            {
+                Main2Activity.super.onActivityResult(requestCode, resultCode, data);
+
+                switch (requestCode)
+                {
+                    case REQUEST_CODE_SPEECH_INPUT: {
+                        if(resultCode == RESULT_OK && null!=data){
+                            ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+
+                            onClear();
+                        }
+                    }
+                }
+            }
+        });
+
 
         MaterialFactory.makeTransparentWithColor(this, new Color(0F, 0F, 244F))
                 .thenAccept(
