@@ -4,6 +4,7 @@ package com.example.cian.cianmeasureapp;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Point;
@@ -52,17 +53,29 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.Delayed;
+
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+
 
 public class Main2Activity extends AppCompatActivity implements Node.OnTapListener, Scene.OnUpdateListener {
     private static final String TAG = Main2Activity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
 
-    private static final int REQUEST_CODE_SPEECH_INPUT = 1000;
+
+    DatabaseReference reff;
+    Measurement test;
+    private static final int REQUEST_CODE_SPEECH_INPUT = 1001;
+    private static final int REQUEST_CODE_SPEECH_INPUT2 = 1002;
+    private static final int REQUEST_CODE_SPEECH_INPUT3 = 1003;
+    private static final int REQUEST_CODE_SPEECH_INPUT4 = 1004;
+
+
     private SpeechRecognizer mySpeechRecognizer;
     private TextToSpeech myTTS;
-    private TextToSpeech myTTS1;
-    private TextToSpeech myTTS2;
-    private TextToSpeech myTTS3;
     private ArFragment arFragment;
     private AnchorNode lastAnchorNode;
     private TextView txtDistance;
@@ -78,12 +91,26 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     Float currentDistance;
 
     ImageButton mvoiceBtn;
+    private String mAnswer = "";
+    private String userlocation;
+    private String userDescription;
+    private String userReview;
+    private String userRating;
+    Button btnUpload;
 
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         setContentView(R.layout.activity_ux);
+        
+        btnUpload = findViewById(R.id.upload);
+        btnUpload.setOnClickListener(v -> upload());
+        test=new Measurement();
+
+
+
+
+        reff=FirebaseDatabase.getInstance().getReference().child("Test");
 
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
         txtDistance = findViewById(R.id.txtLength);
@@ -91,45 +118,6 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         btnClear = findViewById(R.id.clear);
         btnClear.setOnClickListener(v -> onClear());
         mvoiceBtn = findViewById(R.id.voiceBtn);
-        mvoiceBtn.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                speak ();
-            }
-
-            private void speak() {
-                Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL,
-                RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
-                intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
-                intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Would you like to clear existing anchors?");
-
-
-                try {
-                    startActivityForResult(intent, REQUEST_CODE_SPEECH_INPUT);
-                }
-
-                catch (Exception e){
-
-                }
-            }
-
-            protected void OnActivityResult(int requestCode, int resultCode, @Nullable Intent data)
-            {
-                Main2Activity.super.onActivityResult(requestCode, resultCode, data);
-
-                switch (requestCode)
-                {
-                    case REQUEST_CODE_SPEECH_INPUT: {
-                        if(resultCode == RESULT_OK && null!=data){
-                            ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-
-                            onClear();
-                        }
-                    }
-                }
-            }
-        });
 
 
         MaterialFactory.makeTransparentWithColor(this, new Color(0F, 0F, 244F))
@@ -197,7 +185,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                     listOfArrays2.add(pose.ty()); //Store y component of pose's translation
                                     listOfArrays2.add(pose.tz()); //Store z component of pose's translation
                                     float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
-                                    txtDistance.setText("Distance: " + String.valueOf(d)); //Display the distance
+                                    txtDistance.setText("Distance: " + String.valueOf(d) + "m"); //Display the distance
                                     currentDistance=d;
                                 }
 
@@ -229,7 +217,6 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                                     }
                                             );
                                     lastAnchorNode = anchorNode;
-                                    speakNotWideEnough();
                                     speakDistance();
                                 }
                                 else{
@@ -251,7 +238,6 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                                     }
                                             );
                                     lastAnchorNode = anchorNode;
-                                    speakWideEnough();
                                     speakDistance();
 
                                 }
@@ -266,7 +252,6 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                     }
                 });
 
-        initalizeSpeechRecognizer();
     }
     private void speakDistance() {
         myTTS = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
@@ -286,53 +271,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         });
     }
 
-    private void speakWideEnough() {
-        myTTS1 = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
-            @Override
-            public void onInit(int status) {
-                if(myTTS1.getEngines().size() == 0)
-                {
-                    Toast.makeText(Main2Activity.this, "There is no TTS engine on your device", Toast.LENGTH_LONG).show();
-                    finish();
-                }
-                else
-                {
-                    myTTS1.setLanguage(Locale.ENGLISH);
-                    speak1("The distance is wide enough for you to pass through");
-                }
-            }
-        });
-    }
 
-    private void speakNotWideEnough() {
-        myTTS2 = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
-            @Override
-            public void onInit(int status) {
-                if(myTTS2.getEngines().size() == 0)
-                {
-                    Toast.makeText(Main2Activity.this, "There is no TTS engine on your device", Toast.LENGTH_LONG).show();
-                    finish();
-                }
-                else
-                {
-                    myTTS2.setLanguage(Locale.ENGLISH);
-                    speak2("The distance is NOT wide enough for you to pass through");
-                }
-            }
-        });
-    }
-    private void processResults(String command) {
-        command = command.toLowerCase();
-
-        //what is the distance?
-
-        if(command.indexOf("what") != -1)
-        {
-            speak3("The distance is " + currentDistance + "metres");
-        }
-
-
-    }
 
     private void speak(String message)
     {
@@ -346,98 +285,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         }
     }
 
-    private void speak1(String message)
-    {
-        if(Build.VERSION.SDK_INT >= 21)
-        {
-            myTTS1.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
-        }
-        else
-        {
-            myTTS1.speak(message, TextToSpeech.QUEUE_FLUSH, null);
-        }
-    }
 
-    private void speak2(String message)
-    {
-        if(Build.VERSION.SDK_INT >= 21)
-        {
-            myTTS2.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
-        }
-        else
-        {
-            myTTS2.speak(message, TextToSpeech.QUEUE_FLUSH, null);
-        }
-    }
-
-    private void speak3(String message)
-    {
-        if(Build.VERSION.SDK_INT >= 21)
-        {
-            myTTS3.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
-        }
-        else
-        {
-            myTTS3.speak(message, TextToSpeech.QUEUE_FLUSH, null);
-        }
-    }
-
-    private void initalizeSpeechRecognizer()
-    {
-        if(SpeechRecognizer.isRecognitionAvailable(this))
-        {
-            mySpeechRecognizer = mySpeechRecognizer.createSpeechRecognizer(this);
-            mySpeechRecognizer.setRecognitionListener(new RecognitionListener() {
-                @Override
-                public void onReadyForSpeech(Bundle params) {
-
-                }
-
-                @Override
-                public void onBeginningOfSpeech() {
-
-                }
-
-                @Override
-                public void onRmsChanged(float rmsdB) {
-
-                }
-
-                @Override
-                public void onBufferReceived(byte[] buffer) {
-
-                }
-
-                @Override
-                public void onEndOfSpeech() {
-
-                }
-
-                @Override
-                public void onError(int error) {
-
-                }
-
-                @Override
-                public void onResults(Bundle results) {
-                    List<String> resultstest = results.getStringArrayList(
-                            SpeechRecognizer.RESULTS_RECOGNITION
-                    );
-                    processResults(resultstest.get(0));
-                }
-
-                @Override
-                public void onPartialResults(Bundle partialResults) {
-
-                }
-
-                @Override
-                public void onEvent(int eventType, Bundle params) {
-
-                }
-            });
-        }
-    }
 
     private void onClear() //Method used to remove nodes from scene and reset to initial state
     {
@@ -462,6 +310,105 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         point1 = null;
         point2 = null;
         txtDistance.setText("");
+    }
+
+
+    private void upload()
+    {
+            //Toast.makeText(this, "Cannot upload without measurement being taken", Toast.LENGTH_SHORT).show();
+
+            location();
+            String location = userlocation;
+            float distance = currentDistance;
+
+            //description();
+            String description = userDescription;
+            //review();
+            String review = userReview;
+            //rating();
+            String rating = userRating;
+
+            test.setLocation(location);
+            test.setDistance(distance);
+            test.setDescription(description);
+            test.setReview(review);
+            test.setRating(rating);
+            reff.push().setValue(test);
+
+    }
+
+    private void location() {
+        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
+        intent.putExtra(RecognizerIntent.EXTRA_PROMPT, "Where is being measured?");
+        startActivityForResult(intent, REQUEST_CODE_SPEECH_INPUT);
+
+    }
+
+    private void description() {
+        Intent intent1 = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent1.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent1.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
+        intent1.putExtra(RecognizerIntent.EXTRA_PROMPT, "Describe the measurement");
+        startActivityForResult(intent1, REQUEST_CODE_SPEECH_INPUT2);
+
+    }
+
+    private void review() {
+        Intent intent2 = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent2.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent2.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
+        intent2.putExtra(RecognizerIntent.EXTRA_PROMPT, "Give a review");
+        startActivityForResult(intent2, REQUEST_CODE_SPEECH_INPUT3);
+    }
+
+    private void rating() {
+        Intent intent3 = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
+        intent3.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
+        intent3.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
+        intent3.putExtra(RecognizerIntent.EXTRA_PROMPT, "Give a rating out of 10");
+        startActivityForResult(intent3, REQUEST_CODE_SPEECH_INPUT4);
+    }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        switch (requestCode) {
+            case REQUEST_CODE_SPEECH_INPUT: {
+                if (resultCode == RESULT_OK && null != data) {
+                    ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    userlocation = result.get(0);
+                    description();
+                }
+
+            }
+            case REQUEST_CODE_SPEECH_INPUT2: {
+                if (resultCode == RESULT_OK && null != data) {
+                    ArrayList<String> result1 = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    userDescription = result1.get(0);
+                    review();
+                }
+                break;
+            }
+            case REQUEST_CODE_SPEECH_INPUT3: {
+                if (resultCode == RESULT_OK && null != data) {
+                    ArrayList<String> result2 = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    userReview = result2.get(0);
+                    rating();
+                }
+                break;
+            }
+            case REQUEST_CODE_SPEECH_INPUT4: {
+                if (resultCode == RESULT_OK && null != data) {
+                    ArrayList<String> result3 = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
+                    userRating = result3.get(0);
+                }
+                break;
+            }
+
+        }
+
     }
 
     private float getDistanceMeters(ArrayList<Float> list1, ArrayList<Float> list2) //method to get distance between poses

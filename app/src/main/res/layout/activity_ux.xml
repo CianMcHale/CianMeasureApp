@@ -3,7 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context=".MainActivity">
+    tools:context=".Main2Activity">
 
     <fragment
         android:id="@+id/ux_fragment"
@@ -18,13 +18,21 @@
         android:id="@+id/clear"
         android:layout_gravity="center_horizontal"/>
 
+    <Button
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="UPLOAD"
+        android:id="@+id/upload"
+        android:layout_gravity="right"/>
+
     <TextView
-        android:textSize="20sp"
+        android:textSize="30dp"
         android:id="@+id/txtLength"
         android:layout_gravity="bottom"
         android:gravity="center"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:textColor="@android:color/white" />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
