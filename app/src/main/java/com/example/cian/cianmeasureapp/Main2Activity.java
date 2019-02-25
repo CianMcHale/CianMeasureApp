@@ -7,15 +7,20 @@ import android.app.ActivityManager;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
 import android.graphics.Point;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
+import android.os.Environment;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.Nullable;
+import android.support.v4.app.ActivityCompat;
+import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
@@ -48,6 +53,9 @@ import com.google.ar.sceneform.rendering.ShapeFactory;
 import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.ScaleController;
 import com.google.ar.sceneform.ux.TransformableNode;
+
+import java.io.File;
+import java.io.FileOutputStream;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -88,7 +96,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     Intent intentReceived = getIntent();
     //Float width = intentReceived.getFloatExtra("userWidthInput", 0.0f);
     Float width=0.8f;
-    Float currentDistance;
+    double currentDistance;
 
     ImageButton mvoiceBtn;
     private String mAnswer = "";
@@ -102,7 +110,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ux);
-        
+
         btnUpload = findViewById(R.id.upload);
         btnUpload.setOnClickListener(v -> upload());
         test=new Measurement();
@@ -172,8 +180,8 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                     listOfArrays2.add(pose.tx()); //Store x component of pose's translation
                                     listOfArrays2.add(pose.ty()); //Store y component of pose's translation
                                     listOfArrays2.add(pose.tz()); //Store z component of pose's translation
-                                    float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
-                                    txtDistance.setText("Distance: " + String.valueOf(d)); //Display distance between nodes
+                                    double d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
+                                    txtDistance.setText("Distance: " + String.valueOf(round(d, 2)) +"m"); //Display distance between nodes
                                     currentDistance=d;
                                 }
                                 else
@@ -184,8 +192,8 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                     listOfArrays2.add(pose.tx()); //Store x component of pose's translation
                                     listOfArrays2.add(pose.ty()); //Store y component of pose's translation
                                     listOfArrays2.add(pose.tz()); //Store z component of pose's translation
-                                    float d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
-                                    txtDistance.setText("Distance: " + String.valueOf(d) + "m"); //Display the distance
+                                    double d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
+                                    txtDistance.setText("Distance: " + String.valueOf(round(d,2)) + "m"); //Display the distance
                                     currentDistance=d;
                                 }
 
@@ -253,6 +261,14 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                 });
 
     }
+    public static double round(double value, int places) {
+        if (places < 0) throw new IllegalArgumentException();
+
+        long factor = (long) Math.pow(10, places);
+        value = value * factor;
+        long tmp = Math.round(value);
+        return (double) tmp / factor;
+    }
     private void speakDistance() {
         myTTS = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
             @Override
@@ -265,13 +281,11 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                 else
                 {
                     myTTS.setLanguage(Locale.ENGLISH);
-                    speak("The distance is " + currentDistance +"metres");
+                    speak("The distance is " + round(currentDistance, 2) +"metres");
                 }
             }
         });
     }
-
-
 
     private void speak(String message)
     {
@@ -319,7 +333,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
             location();
             String location = userlocation;
-            float distance = currentDistance;
+            double distance = currentDistance;
 
             //description();
             String description = userDescription;
@@ -329,7 +343,8 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
             String rating = userRating;
 
             test.setLocation(location);
-            test.setDistance(distance);
+            String x = Double.toString(distance);
+            test.setDistance(x);
             test.setDescription(description);
             test.setReview(review);
             test.setRating(rating);
@@ -381,6 +396,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                     userlocation = result.get(0);
                     description();
                 }
+                break;
 
             }
             case REQUEST_CODE_SPEECH_INPUT2: {
@@ -411,13 +427,13 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
     }
 
-    private float getDistanceMeters(ArrayList<Float> list1, ArrayList<Float> list2) //method to get distance between poses
+    private double getDistanceMeters(ArrayList<Float> list1, ArrayList<Float> list2) //method to get distance between poses
     {
 
-        float dx = list1.get(0) - list2.get(0); //distance between poses at x co-ordinate
-        float dy = list1.get(1) - list2.get(1); //distance between poses at y co-ordinate
-        float dz = list1.get(2) - list2.get(2); //distance between poses at z co-ordinate
-        return (float) Math.sqrt(dx * dx + dy * dy + dz * dz);
+        double dx = list1.get(0) - list2.get(0); //distance between poses at x co-ordinate
+        double dy = list1.get(1) - list2.get(1); //distance between poses at y co-ordinate
+        double dz = list1.get(2) - list2.get(2); //distance between poses at z co-ordinate
+        return (double) Math.sqrt(dx * dx + dy * dy + dz * dz);
     }
 
     @Override

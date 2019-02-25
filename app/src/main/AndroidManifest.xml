@@ -15,10 +15,11 @@
         android:required="true" />
 
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
     <application
         android:allowBackup="false"
         android:icon="@drawable/my_logo"
-        android:label="Cian Measure"
+        android:label="Cian Measure1"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         tools:ignore="GoogleAppIndexingWarning">
@@ -33,6 +34,7 @@
             android:value="required" />
 
         <activity android:name=".Main2Activity"  android:exported="true"/>
+
     </application>
 
 </manifest>
