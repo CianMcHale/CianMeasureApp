@@ -19,7 +19,7 @@
     <application
         android:allowBackup="false"
         android:icon="@drawable/my_logo"
-        android:label="Cian Measure1"
+        android:label="Cian Measure"
         android:theme="@style/AppTheme"
         android:usesCleartextTraffic="false"
         tools:ignore="GoogleAppIndexingWarning">
@@ -33,7 +33,24 @@
             android:name="com.google.ar.core"
             android:value="required" />
 
-        <activity android:name=".Main2Activity"  android:exported="true"/>
+        <activity
+            android:name=".Main2Activity"
+            android:exported="true">
+        <intent-filter>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER"/>
+        </intent-filter>/>
+        </activity>
+
+        <provider
+            android:name="android.support.v4.content.FileProvider"
+            android:authorities="${applicationId}.cianmchale.app.provider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/paths"/>
+        </provider>
 
     </application>
 

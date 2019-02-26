@@ -4,32 +4,42 @@ package com.example.cian.cianmeasureapp;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.app.ActivityManager;
+import android.app.ProgressDialog;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.media.MediaPlayer;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Build.VERSION_CODES;
 import android.os.Bundle;
 import android.os.Environment;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.Nullable;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v4.content.FileProvider;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.MotionEvent;
+import android.view.PixelCopy;
 import android.view.View;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.android.gms.tasks.Task;
 import com.google.ar.core.Anchor;
 import com.google.ar.core.Frame;
 import com.google.ar.core.HitResult;
@@ -37,6 +47,7 @@ import com.google.ar.core.Plane;
 import com.google.ar.core.Pose;
 import com.google.ar.core.Trackable;
 import com.google.ar.sceneform.AnchorNode;
+import com.google.ar.sceneform.ArSceneView;
 import com.google.ar.sceneform.Camera;
 import com.google.ar.sceneform.FrameTime;
 import com.google.ar.sceneform.HitTestResult;
@@ -54,22 +65,32 @@ import com.google.ar.sceneform.ux.ArFragment;
 import com.google.ar.sceneform.ux.ScaleController;
 import com.google.ar.sceneform.ux.TransformableNode;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.UUID;
 import java.util.concurrent.Delayed;
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
 
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.OnProgressListener;
 import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 
-public class Main2Activity extends AppCompatActivity implements Node.OnTapListener, Scene.OnUpdateListener {
+
+public class Main2Activity extends AppCompatActivity implements Node.OnTapListener, Scene.OnUpdateListener, View.OnClickListener {
     private static final String TAG = Main2Activity.class.getSimpleName();
     private static final double MIN_OPENGL_VERSION = 3.0;
 
@@ -80,6 +101,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     private static final int REQUEST_CODE_SPEECH_INPUT2 = 1002;
     private static final int REQUEST_CODE_SPEECH_INPUT3 = 1003;
     private static final int REQUEST_CODE_SPEECH_INPUT4 = 1004;
+    private static final int Selected = 100;
 
 
     private SpeechRecognizer mySpeechRecognizer;
@@ -91,42 +113,52 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     ModelRenderable cubeRenderable;
     ArrayList<Float> listOfArrays1 = new ArrayList<>(); //Co-Ordinates of first anchor stored here
     ArrayList<Float> listOfArrays2 = new ArrayList<>(); //Co-Ordinates of second anchor stored here
-    private float time; //Will be used to store current time.
     Vector3 point1, point2;
-    Intent intentReceived = getIntent();
-    //Float width = intentReceived.getFloatExtra("userWidthInput", 0.0f);
-    Float width=0.8f;
     double currentDistance;
+    private String userlocation, userDescription, userReview, userRating;
+    Button btnUpload, btnSnap;
+    TextView YourUrlImage;
+    FirebaseStorage storage;
+    StorageReference storageRef, imageRef;
+    ProgressDialog progressDialog;
+    UploadTask uploadTask;
+    Uri uriImage;
 
-    ImageButton mvoiceBtn;
-    private String mAnswer = "";
-    private String userlocation;
-    private String userDescription;
-    private String userReview;
-    private String userRating;
-    Button btnUpload;
+
 
 
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_ux);
+        storage= FirebaseStorage.getInstance();
+        storageRef = storage.getReference();
+
+        //YourUrlImage = (TextView) findViewById(R.id.myUrl);
 
         btnUpload = findViewById(R.id.upload);
-        btnUpload.setOnClickListener(v -> upload());
-        test=new Measurement();
-
-
-
-
-        reff=FirebaseDatabase.getInstance().getReference().child("Test");
-
-        arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
+        btnUpload.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                ChooseImage();
+                upload();
+            }
+            private void ChooseImage() {
+                Intent photoPickerIntent = new Intent(Intent.ACTION_PICK);
+                photoPickerIntent.setType("image/*");
+                startActivityForResult(photoPickerIntent, Selected);
+            }
+        });
         txtDistance = findViewById(R.id.txtLength);
 
         btnClear = findViewById(R.id.clear);
         btnClear.setOnClickListener(v -> onClear());
-        mvoiceBtn = findViewById(R.id.voiceBtn);
 
+        reff=FirebaseDatabase.getInstance().getReference().child("Test");
+
+        arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
+
+
+        test=new Measurement();
 
         MaterialFactory.makeTransparentWithColor(this, new Color(0F, 0F, 244F))
                 .thenAccept(
@@ -143,7 +175,8 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                     Point center = getScreenCenter(arFragment); //Track point that the centre of the screen is looking at
                     List<HitResult> result = frame.hitTest(center.x, center.y); //Perform raycast from device in the centre direction
 
-                    if (cubeRenderable == null) {
+                    if (cubeRenderable == null)
+                    {
                         return;
                     }
 
@@ -181,7 +214,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                     listOfArrays2.add(pose.ty()); //Store y component of pose's translation
                                     listOfArrays2.add(pose.tz()); //Store z component of pose's translation
                                     double d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
-                                    txtDistance.setText("Distance: " + String.valueOf(round(d, 2)) +"m"); //Display distance between nodes
+                                    txtDistance.setText("Distance: " + String.valueOf(round(d, 3)) +"m"); //Display distance between nodes
                                     currentDistance=d;
                                 }
                                 else
@@ -193,7 +226,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                     listOfArrays2.add(pose.ty()); //Store y component of pose's translation
                                     listOfArrays2.add(pose.tz()); //Store z component of pose's translation
                                     double d = getDistanceMeters(listOfArrays1, listOfArrays2); //calculate distance between nodes
-                                    txtDistance.setText("Distance: " + String.valueOf(round(d,2)) + "m"); //Display the distance
+                                    txtDistance.setText("Distance: " + String.valueOf(round(d,3)) + "m"); //Display the distance
                                     currentDistance=d;
                                 }
 
@@ -206,7 +239,6 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                 point1 = lastAnchorNode.getWorldPosition();
                                 point2 = anchorNode.getWorldPosition();
 
-                                if(width >= currentDistance) {
                                     final Vector3 difference = Vector3.subtract(point1, point2); //Find vector extending between two nodes  and define a look rotation in terms of this vector
                                     final Vector3 directionFromTopToBottom = difference.normalized();
                                     final Quaternion rotationFromAToB =
@@ -226,29 +258,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                             );
                                     lastAnchorNode = anchorNode;
                                     speakDistance();
-                                }
-                                else{
-                                    final Vector3 difference = Vector3.subtract(point1, point2); //Find vector extending between two nodes  and define a look rotation in terms of this vector
-                                    final Vector3 directionFromTopToBottom = difference.normalized();
-                                    final Quaternion rotationFromAToB =
-                                            Quaternion.lookRotation(directionFromTopToBottom, Vector3.up());
-                                    MaterialFactory.makeOpaqueWithColor(getApplicationContext(), new Color(0, 255, 0)) //Create a rectangular prism and use difference vector to extend the necessary length
-                                            .thenAccept(
-                                                    material -> {
-                                                        ModelRenderable model = ShapeFactory.makeCube(
-                                                                new Vector3(.01f, .01f, difference.length()),
-                                                                Vector3.zero(), material);
-                                                        Node node = new Node();
-                                                        node.setParent(anchorNode);
-                                                        node.setRenderable(model);
-                                                        node.setWorldPosition(Vector3.add(point1, point2).scaled(.5f)); //Set the world rotation of the node to the rotation calculated earlier
-                                                        node.setWorldRotation(rotationFromAToB); //Set world position to midpoint between given points
-                                                    }
-                                            );
-                                    lastAnchorNode = anchorNode;
-                                    speakDistance();
 
-                                }
                             }
                         }
 
@@ -259,9 +269,109 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
                     }
                 });
+        findViewById(R.id.btnSnap).setOnClickListener(this);
+
 
     }
-    public static double round(double value, int places) {
+
+    /*CAPTURE CODE*/
+
+    /*
+    generateFilename Method:
+    A unique file name is needed for each picture we take.
+    The filename for the picture is generated using the standard pictures directory.
+    Each image name is based on the time, so they won't overwrite each other.
+    */
+    private String generateFilename() {
+        String date = new SimpleDateFormat("yyyyMMddHHmmss", java.util.Locale.getDefault()).format(new Date());
+        return Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES) + File.separator + date + "_screenshot.jpg";
+    }
+
+
+    /*
+    saveBitmapToDisk Method: Writes out the bitmap to the file.
+    */
+    private void saveBitmapToDisk(Bitmap bitmap, String filename) throws IOException {
+
+        File out = new File(filename);
+        if (!out.getParentFile().exists()) {
+            out.getParentFile().mkdirs();
+        }
+        try (FileOutputStream outputStream = new FileOutputStream(filename);
+             ByteArrayOutputStream outputData = new ByteArrayOutputStream()) {
+            bitmap.compress(Bitmap.CompressFormat.PNG, 100, outputData);
+            outputData.writeTo(outputStream);
+            outputStream.flush();
+
+        } catch (IOException ex) {
+            throw new IOException("Failed to save bitmap to disk", ex);
+        }
+    }
+
+
+
+    /*
+    takePhoto Method:
+    Uses the PixelCopy API to capture a screenshot of the ArSceneView.
+    It is asynchronous since it actually happens between frames.
+    When the listener is called, the bitmap is saved to the disk, and then a snackbar is shown with an intent to open the image in the Pictures application.
+    */
+    private void takePhoto() {
+        final String filename = generateFilename();
+        ArSceneView view = arFragment.getArSceneView();
+
+        // Create a bitmap the size of the scene view.
+        final Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(),
+                Bitmap.Config.ARGB_8888);
+
+        // Create a handler thread to offload the processing of the image.
+        final HandlerThread handlerThread = new HandlerThread("PixelCopier");
+        handlerThread.start();
+        // Make the request to copy.
+
+        PixelCopy.request(view, bitmap, (copyResult) -> {
+            if (copyResult == PixelCopy.SUCCESS) {
+                try {
+                    saveBitmapToDisk(bitmap, filename);
+                } catch (IOException e) {
+                    Toast toast = Toast.makeText(Main2Activity.this, e.toString(),
+                            Toast.LENGTH_LONG);
+                    toast.show();
+                    return;
+                }
+                Snackbar snackbar = Snackbar.make(findViewById(android.R.id.content), "Screenshot done!!!", Snackbar.LENGTH_LONG);
+                snackbar.setAction("Save screenshot", v -> {
+                    File photoFile = new File(filename);
+
+                    Uri photoURI = FileProvider.getUriForFile(Main2Activity.this,
+                            Main2Activity.this.getPackageName() + ".cianmchale.app.provider",
+                            photoFile);
+                    Intent intent = new Intent(Intent.ACTION_VIEW, photoURI);
+                    intent.setDataAndType(photoURI, "image/*");
+                    intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivity(intent);
+
+                });
+                snackbar.getView().setBackgroundColor(ContextCompat.getColor(this, R.color.colorPrimary));
+                snackbar.show();
+            } else {
+                Toast toast = Toast.makeText(Main2Activity.this,
+                        "Failed to copyPixels: " + copyResult, Toast.LENGTH_LONG);
+                toast.show();
+            }
+            handlerThread.quitSafely();
+        }, new Handler(handlerThread.getLooper()));
+    }
+
+    public void onClick(View v) {
+
+        takePhoto();
+
+    }
+
+
+    public static double round(double value, int places)
+    {
         if (places < 0) throw new IllegalArgumentException();
 
         long factor = (long) Math.pow(10, places);
@@ -269,7 +379,9 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         long tmp = Math.round(value);
         return (double) tmp / factor;
     }
-    private void speakDistance() {
+
+    private void speakDistance()
+    {
         myTTS = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -390,6 +502,15 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         super.onActivityResult(requestCode, resultCode, data);
 
         switch (requestCode) {
+            case Selected: {
+                if (resultCode == RESULT_OK && null != data) {
+                    uriImage = data.getData();
+                    UploadFoto();
+                }
+                break;
+
+            }
+
             case REQUEST_CODE_SPEECH_INPUT: {
                 if (resultCode == RESULT_OK && null != data) {
                     ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
@@ -425,6 +546,50 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
         }
 
+    }
+
+    public void UploadFoto() {
+
+        imageRef = storageRef.child("picture/" +new Date().toString());
+
+        progressDialog = new ProgressDialog(this);
+        progressDialog.setMax(100);
+        progressDialog.setMessage("Uploading...");
+        progressDialog.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+        progressDialog.show();
+        progressDialog.setCancelable(false);
+
+        uploadTask = imageRef.putFile(uriImage);
+
+        uploadTask.addOnProgressListener(new OnProgressListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onProgress(UploadTask.TaskSnapshot taskSnapshot) {
+                double progress = (100.0 * taskSnapshot.getBytesTransferred()) / taskSnapshot.getTotalByteCount();
+
+                progressDialog.incrementProgressBy((int) progress);
+            }
+        });
+
+        uploadTask.addOnFailureListener(new OnFailureListener() {
+            @Override
+            public void onFailure(Exception exception) {
+                Toast.makeText(getApplicationContext(),"Failed!",Toast.LENGTH_SHORT).show();
+                progressDialog.dismiss();
+            }
+        }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                Task<Uri> urlTask = taskSnapshot.getStorage().getDownloadUrl();
+                while (!urlTask.isSuccessful());
+
+                Uri downloadUrl = urlTask.getResult();
+                String urlIMAGE = downloadUrl.toString();
+                progressDialog.dismiss();
+
+                //YourUrlImage.setText("Your Download URl : "+urlIMAGE);
+
+            }
+        });
     }
 
     private double getDistanceMeters(ArrayList<Float> list1, ArrayList<Float> list2) //method to get distance between poses
