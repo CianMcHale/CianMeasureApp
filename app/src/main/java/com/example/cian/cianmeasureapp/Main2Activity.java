@@ -96,7 +96,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
 
     DatabaseReference reff;
-    Measurement test;
+    Measurement measurements;
     private static final int REQUEST_CODE_SPEECH_INPUT = 1001;
     private static final int REQUEST_CODE_SPEECH_INPUT2 = 1002;
     private static final int REQUEST_CODE_SPEECH_INPUT3 = 1003;
@@ -115,7 +115,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
     ArrayList<Float> listOfArrays2 = new ArrayList<>(); //Co-Ordinates of second anchor stored here
     Vector3 point1, point2;
     double currentDistance;
-    private String userlocation, userDescription, userReview, userRating;
+    private String userlocation, userDescription, userReview, userRating, picUrl;
     Button btnUpload, btnSnap;
     TextView YourUrlImage;
     FirebaseStorage storage;
@@ -153,12 +153,12 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         btnClear = findViewById(R.id.clear);
         btnClear.setOnClickListener(v -> onClear());
 
-        reff=FirebaseDatabase.getInstance().getReference().child("Test");
+        reff=FirebaseDatabase.getInstance().getReference().child("Measurements");
 
         arFragment = (ArFragment) getSupportFragmentManager().findFragmentById(R.id.ux_fragment);
 
 
-        test=new Measurement();
+        measurements=new Measurement();
 
         MaterialFactory.makeTransparentWithColor(this, new Color(0F, 0F, 244F))
                 .thenAccept(
@@ -393,7 +393,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                 else
                 {
                     myTTS.setLanguage(Locale.ENGLISH);
-                    speak("The distance is " + round(currentDistance, 2) +"metres");
+                    speak("The distance is " + round(currentDistance, 3) +"metres");
                 }
             }
         });
@@ -444,6 +444,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
             //Toast.makeText(this, "Cannot upload without measurement being taken", Toast.LENGTH_SHORT).show();
 
             location();
+
             String location = userlocation;
             double distance = currentDistance;
 
@@ -454,13 +455,14 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
             //rating();
             String rating = userRating;
 
-            test.setLocation(location);
+            measurements.setPic(picUrl);
+            measurements.setLocation(location);
             String x = Double.toString(distance);
-            test.setDistance(x);
-            test.setDescription(description);
-            test.setReview(review);
-            test.setRating(rating);
-            reff.push().setValue(test);
+            measurements.setDistance(x);
+            measurements.setDescription(description);
+            measurements.setReview(review);
+            measurements.setRating(rating);
+            reff.push().setValue(measurements);
 
     }
 
@@ -584,6 +586,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
                 Uri downloadUrl = urlTask.getResult();
                 String urlIMAGE = downloadUrl.toString();
+                picUrl = urlIMAGE;
                 progressDialog.dismiss();
 
                 //YourUrlImage.setText("Your Download URl : "+urlIMAGE);

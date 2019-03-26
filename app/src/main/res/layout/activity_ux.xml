@@ -22,6 +22,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="@string/clear"
+        android:background="#ff0000"
         android:id="@+id/clear"
         android:layout_gravity="center_horizontal"/>
 
@@ -29,6 +30,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="UPLOAD"
+        android:background="#FF4D00"
         android:id="@+id/upload"
         android:layout_gravity="right"/>
 
@@ -46,10 +48,11 @@
         android:layout_height="wrap_content"
         android:layout_alignStart="@+id/surfaceview"
         android:layout_alignTop="@+id/surfaceview"
+        android:background="#1241ff"
         android:onClick="onSavePicture"
         android:text="Snap"
         android:id="@+id/btnSnap"
-        tools:ignore="OnClick"/>
+        tools:ignore="OnClick" />
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
