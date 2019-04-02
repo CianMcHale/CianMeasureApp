@@ -7,9 +7,9 @@ public class Measurement {
     private String pic;
     private String location;
     private String distance;
-    private String description;
-    private String review;
-    private String rating;
+    //private String description;
+    //private String review;
+    //private String rating;
 
     public Measurement() {
     }
@@ -38,7 +38,7 @@ public class Measurement {
         this.distance = distance;
     }
 
-    public String getDescription() {
+    /*public String getDescription() {
         return description;
     }
 
@@ -61,4 +61,5 @@ public class Measurement {
     public void setRating(String rating) {
         this.rating = rating;
     }
+    */
 }

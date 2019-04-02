@@ -202,6 +202,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                                 transformableNode.select();
                                 lastAnchorNode = anchorNode;
                             } else {
+                                lastAnchorNode.getAnchor().detach();
                                 Anchor anchor = hit.createAnchor();
                                 AnchorNode anchorNode = new AnchorNode(anchor);
                                 anchorNode.setParent(arFragment.getArSceneView().getScene());
@@ -449,19 +450,19 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
             double distance = currentDistance;
 
             //description();
-            String description = userDescription;
+            //String description = userDescription;
             //review();
-            String review = userReview;
+            //String review = userReview;
             //rating();
-            String rating = userRating;
+            //String rating = userRating;
 
             measurements.setPic(picUrl);
             measurements.setLocation(location);
             String x = Double.toString(distance);
             measurements.setDistance(x);
-            measurements.setDescription(description);
-            measurements.setReview(review);
-            measurements.setRating(rating);
+            //measurements.setDescription(description);
+            //measurements.setReview(review);
+            //measurements.setRating(rating);
             reff.push().setValue(measurements);
 
     }
@@ -475,7 +476,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
 
     }
 
-    private void description() {
+    /*private void description() {
         Intent intent1 = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
         intent1.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM);
         intent1.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
@@ -498,7 +499,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
         intent3.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, Locale.getDefault());
         intent3.putExtra(RecognizerIntent.EXTRA_PROMPT, "Give a rating out of 10");
         startActivityForResult(intent3, REQUEST_CODE_SPEECH_INPUT4);
-    }
+    }*/
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -512,8 +513,9 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                 break;
 
             }
+        }
 
-            case REQUEST_CODE_SPEECH_INPUT: {
+            /*case REQUEST_CODE_SPEECH_INPUT: {
                 if (resultCode == RESULT_OK && null != data) {
                     ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     userlocation = result.get(0);
@@ -546,7 +548,7 @@ public class Main2Activity extends AppCompatActivity implements Node.OnTapListen
                 break;
             }
 
-        }
+        }*/
 
     }
 
